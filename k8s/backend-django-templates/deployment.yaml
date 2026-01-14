@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aigen
+  namespace: aigen
+  labels:
+    app: aigen
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aigen
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: aigen
+    spec:
+      containers:
+      - image: k8s:latest
+        imagePullPolicy: Never
+        name: k8s
+        ports:
+        - containerPort: 8000
+        env:
+        - name: DJANGO_DEBUG
+          valueFrom:
+            configMapKeyRef:
+              name: django-config
+              key: DJANGO_DEBUG
+        - name: POSTGRES_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: django-config
+              key: POSTGRES_HOST
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: django-config
+              key: POSTGRES_DB
+        - name: POSTGRES_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: django-config
+              key: POSTGRES_PORT
+        - name: POSTGRES_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: django-secret
+              key: POSTGRES_USERNAME
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: django-secret
+              key: POSTGRES_PASSWORD
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: django-secret
+              key: OPENAI_API_KEY
+        resources: {}
+status: {}

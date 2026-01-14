@@ -1,0 +1,10 @@
+apiVersion: v1
+data:
+  DJANGO_DEBUG: "False"
+  POSTGRES_DB: dali_db
+  POSTGRES_HOST: postgres-service
+  POSTGRES_PORT: "5432"
+kind: ConfigMap
+metadata:
+  name: django-config
+  namespace: aigen

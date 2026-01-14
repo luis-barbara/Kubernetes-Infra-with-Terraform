@@ -1,0 +1,22 @@
+# TLS certificates and keys
+*.key
+*.crt
+*.pem
+*.p12
+
+# Kubernetes secrets (local)
+*secret*.yaml
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.log
+*.tmp
+*.swp
+*~
