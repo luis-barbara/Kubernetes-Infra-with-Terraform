@@ -20,3 +20,9 @@ Thumbs.db
 *.tmp
 *.swp
 *~
+
+# Terraform
+*.tfvars
+terraform.tfstate*
+.terraform/
+.terraform.lock.hcl
