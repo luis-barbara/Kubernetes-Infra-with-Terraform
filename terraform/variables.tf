@@ -26,7 +26,7 @@ variable "backend_image" {
 variable "backend_image_pull_policy" {
   description = "Image pull policy for backend container"
   type        = string
-  default     = "Never"
+  default     = "IfNotPresent"
 }
 
 variable "backend_replicas" {
