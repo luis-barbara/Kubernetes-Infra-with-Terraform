@@ -1,3 +1,4 @@
+
 # PersistentVolumeClaim for PostgreSQL
 resource "kubernetes_persistent_volume_claim_v1" "postgres_pvc" {
   metadata {
@@ -17,5 +18,12 @@ resource "kubernetes_persistent_volume_claim_v1" "postgres_pvc" {
         storage = var.storage_size
       }
     }
+
   }
+
+ 
+  depends_on = [
+    kubernetes_namespace_v1.aigen
+  ]
+
 }

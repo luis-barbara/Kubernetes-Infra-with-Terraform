@@ -1,6 +1,6 @@
 # Backend Django App Resources
 
-# ConfigMap for Django config
+# ConfigMap for Django configuration
 resource "kubernetes_config_map_v1" "django_config" {
   metadata {
     name      = "django-config"
@@ -8,14 +8,14 @@ resource "kubernetes_config_map_v1" "django_config" {
   }
 
   data = {
-    DJANGO_DEBUG    = var.django_debug
-    POSTGRES_DB     = var.postgres_db
-    POSTGRES_HOST   = var.postgres_host
-    POSTGRES_PORT   = var.postgres_port
+    DJANGO_DEBUG  = var.django_debug
+    POSTGRES_DB   = var.postgres_db
+    POSTGRES_HOST = var.postgres_host
+    POSTGRES_PORT = var.postgres_port
   }
 }
 
-# Secret for sensitive Django config
+# Secret for sensitive Django configuration
 resource "kubernetes_secret_v1" "django_secret" {
   metadata {
     name      = "django-secret"
@@ -23,9 +23,9 @@ resource "kubernetes_secret_v1" "django_secret" {
   }
 
   data = {
-    POSTGRES_USERNAME = base64encode(var.postgres_username)
-    POSTGRES_PASSWORD = base64encode(var.postgres_password)
-    OPENAI_API_KEY    = base64encode(var.openai_api_key)
+    POSTGRES_USERNAME = var.postgres_username
+    POSTGRES_PASSWORD = var.postgres_password
+    OPENAI_API_KEY    = var.openai_api_key
   }
 
   type = "Opaque"
@@ -150,14 +150,15 @@ resource "kubernetes_deployment_v1" "aigen_backend" {
               memory = var.backend_memory_request
             }
           }
+
+         
         }
       }
     }
   }
 
   depends_on = [
-    kubernetes_config_map_v1.django_config,
-    kubernetes_secret_v1.django_secret
+    kubernetes_stateful_set_v1.postgres 
   ]
 }
 

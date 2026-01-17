@@ -8,9 +8,9 @@ resource "kubernetes_secret_v1" "postgres_secret" {
   }
 
   data = {
-    POSTGRES_USER     = base64encode(var.postgres_username)
-    POSTGRES_PASSWORD = base64encode(var.postgres_password)
-    POSTGRES_DB       = base64encode(var.postgres_db)
+    POSTGRES_USER     = var.postgres_username
+    POSTGRES_PASSWORD = var.postgres_password
+    POSTGRES_DB       = var.postgres_db
   }
 
   type = "Opaque"
@@ -29,7 +29,7 @@ resource "kubernetes_service_v1" "postgres_service" {
 
   spec {
     type       = "ClusterIP"
-    cluster_ip = "None" # Headless service
+    cluster_ip = "None" 
 
     selector = {
       app = "postgres"
@@ -73,12 +73,14 @@ resource "kubernetes_stateful_set_v1" "postgres" {
       }
 
       spec {
-
+        node_selector = {
+          "kubernetes.io/hostname" = var.cluster_name
+        }
 
         container {
-            name  = "postgres"
-            image = var.postgres_image
-            image_pull_policy = "IfNotPresent"
+          name              = "postgres"
+          image             = var.postgres_image
+          image_pull_policy = "IfNotPresent"
 
           port {
             container_port = 5432
@@ -118,6 +120,17 @@ resource "kubernetes_stateful_set_v1" "postgres" {
             name       = "postgres-storage"
             mount_path = "/var/lib/postgresql/data"
             sub_path   = "postgres"
+          }
+
+          resources {
+            limits = {
+              cpu    = "1000m"
+              memory = "1Gi"
+            }
+            requests = {
+              cpu    = "250m"
+              memory = "512Mi"
+            }
           }
         }
 

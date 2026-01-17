@@ -1,7 +1,9 @@
-variable "client" {
-    description = "client's name"
-    type = string
-    default = null
+
+# Cluster Config
+variable "cluster_name" {
+  description = "Minikube cluster name"
+  type        = string
+  default     = "aigen-cluster"
 }
 
 variable "cluster_nodes" {
@@ -10,13 +12,34 @@ variable "cluster_nodes" {
   default     = 1
 }
 
+variable "cluster_cpus" {
+  description = "CPUs per node"
+  type        = number
+  default     = 2
+}
+
+variable "cluster_memory" {
+  description = "Memory per node (MB)"
+  type        = string
+  default     = "4096"
+}
+
+
+# Environment
 variable "environment" {
   description = "Environment (dev, staging, prod)"
   type        = string
   default     = "dev"
 }
 
-# Backend Django Variables
+variable "namespace" {
+  description = "Kubernetes namespace for the application"
+  type        = string
+  default     = "aigen"
+}
+
+
+# Backnd Dkango
 variable "backend_image" {
   description = "Docker image for the backend Django application"
   type        = string
@@ -59,6 +82,7 @@ variable "backend_memory_request" {
   default     = "256Mi"
 }
 
+
 # Django Configuration
 variable "django_debug" {
   description = "Django debug mode"
@@ -66,7 +90,14 @@ variable "django_debug" {
   default     = "False"
 }
 
-# Database Variables
+
+# Database Configuration 
+variable "postgres_image" {
+  description = "PostgreSQL container image"
+  type        = string
+  default     = "postgres:17-alpine"
+}
+
 variable "postgres_db" {
   description = "PostgreSQL database name"
   type        = string
@@ -95,27 +126,7 @@ variable "postgres_username" {
 variable "postgres_password" {
   description = "PostgreSQL password"
   type        = string
-  default     = "qwerty"
   sensitive   = true
-}
-
-variable "openai_api_key" {
-  description = "OpenAI API Key"
-  type        = string
-  sensitive   = true
-}
-
-# Infrastructure Variables
-variable "namespace" {
-  description = "Kubernetes namespace for the application"
-  type        = string
-  default     = "aigen"
-}
-
-variable "postgres_image" {
-  description = "PostgreSQL container image"
-  type        = string
-  default     = "postgres:17-alpine"
 }
 
 variable "storage_size" {
@@ -124,8 +135,24 @@ variable "storage_size" {
   default     = "1Gi"
 }
 
+
+# Openai API
+variable "openai_api_key" {
+  description = "OpenAI API Key"
+  type        = string
+  sensitive   = true
+}
+
+
+# Ingress Configuration
 variable "ingress_host" {
   description = "Ingress host for the application"
   type        = string
   default     = "aigen.local"
+}
+
+variable "enable_tls" {
+  description = "Enable TLS for ingress"
+  type        = bool
+  default     = false
 }

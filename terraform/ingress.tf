@@ -1,5 +1,8 @@
 # TLS Secret for HTTPS
+
 resource "kubernetes_secret_v1" "tls_secret" {
+  count = var.enable_tls ? 1 : 0  
+
   metadata {
     name      = "aigen-tls-secret"
     namespace = kubernetes_namespace_v1.aigen.metadata[0].name
@@ -27,12 +30,15 @@ resource "kubernetes_ingress_v1" "aigen_ingress" {
   spec {
     ingress_class_name = "nginx"
 
-    tls {
-      hosts = [
-        var.ingress_host,
-        "localhost"
-      ]
-      secret_name = "aigen-tls-secret"
+    dynamic "tls" {
+      for_each = var.enable_tls ? [1] : []
+      content {
+        hosts = [
+          var.ingress_host,
+          "localhost"
+        ]
+        secret_name = "aigen-tls-secret"
+      }
     }
 
     rule {
@@ -77,7 +83,6 @@ resource "kubernetes_ingress_v1" "aigen_ingress" {
   }
 
   depends_on = [
-    kubernetes_service_v1.aigen_service,
-    kubernetes_secret_v1.tls_secret
+    kubernetes_service_v1.aigen_service
   ]
 }
