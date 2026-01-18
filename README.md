@@ -1,62 +1,66 @@
 # Kubernetes 3-Tier Infrastructure with Terraform
 
-AI Image Generator application deployed on Kubernetes using Terraform Infrastructure as Code.
+AI Image Generator (Django + PostgreSQL) deployed on Kubernetes (Minikube) using Terraform Infrastructure as Code.
+
+---
 
 ## 📋 Table of Contents
 
-- [Quick Start](#quick-start)
-- [Project Structure](#project-structure)
-
----
-- **Database**: PostgreSQL 17 Alpine
-- **Orchestration**: Kubernetes (Minikube)
-- **IaC**: Terraform
-
-### What was **REUSED**:
-✅ Same Django application (AI Image Generator)  
-
-🔄 **Secrets managed via `terraform.tfvars`** (not hardcoded)  
-- ✅ **State management**: Terraform tracks what exists
-
-## 🚀 Quick Start
-
-### 1️⃣ Clone Repository
-```bash
-- ✅ **Variables and outputs**: Dynamic configuration
-- ✅ **Easy destroy**: Remove everything with one command
-```
-
-### 2️⃣ Configure Credentials
-
-Edit `terraform/terraform.tfvars`:
-```hcl
-- ✅ **Versioning**: Control provider versions
-
-```
-
-### 3️⃣ Deploy Everything (Automático)
-
-```bash
----
-```
-Esse comando irá:
-- Inicializar o Terraform
-- Buildar a imagem Docker
-- Aplicar a infraestrutura
-- Rodar os testes
-- Fazer o port-forward HTTPS automaticamente
-
-Ao final, acesse:
-- HTTPS: https://localhost:8443 (aceite o certificado self-signed)
-- HTTP:  http://localhost:8000 (use `make http` se quiser expor HTTP)
+- [Overview](#-overview)
+- [Relationship to Previous Exercise](#-relationship-to-previous-exercise)
+- [Architecture](#️-architecture)
+- [Prerequisites](#️-prerequisites)
+- [Quick Start](#-quick-start-recommended)
+- [Useful Commands](#-useful-commands)
+- [Project Structure](#-project-structure)
+- [Configuration](#-configuration)
+- [Testing](#-testing)
+- [Destroy Environment](#️-destroy-environment)
+- [Known Limitations](#️-known-limitations)
+- [Troubleshooting](#-troubleshooting)
+- [References](#-references)
+- [Important Notes](#-important-notes)
+- [Author](#-author)
+- [License](#-license)
 
 ---
 
-### Comandos Individuais (Avançado)
+## 🎯 Overview
 
-Se preferir executar etapas separadas:
+This project deploys a 3-tier application:
 
-```bash
+- **Application Layer**: Django (AI Image Generator)
+- **Database Layer**: PostgreSQL 17 (StatefulSet + PVC)
+- **Networking Layer**: Kubernetes Service + NGINX Ingress + TLS
+
+All Kubernetes resources are created using **Terraform Kubernetes Provider** (**no `kubectl apply -f`**).
+
+---
+
+## 🔄 Relationship to Previous Exercise
+
+### What was REUSED
+- Same Django application (AI Image Generator)
+- Same PostgreSQL database
+- Same architecture (App + DB + Ingress)
+- Same environment variables (ConfigMaps + Secrets)
+- Same persistence (PVC)
+
+### What changed (YAML → Terraform)
+- Kubernetes resources are now created using **Terraform**
+- Infrastructure is modularized into multiple `.tf` files
+- Variables and outputs are used for configuration
+- Automation scripts + Makefile added (`init`, `apply`, `test`, `destroy`)
+- Secrets are configured via `terraform.tfvars` (not hardcoded)
+
+### Terraform Advantages over YAML
+- **State management**: Terraform tracks what exists
+- **Plan before apply**: Preview changes before execution
+- **Modular code**: Easier to maintain and reuse
+- **Easy destroy**: Remove everything with one command
+- **Versioning**: Control provider versions
+
+---
 
 ## 🏗️ Architecture
 
@@ -88,22 +92,23 @@ Se preferir executar etapas separadas:
          └───────────────────┘
 ```
 
-**Namespace**: `aigen`  
-**Storage**: PersistentVolumeClaim (ReadWriteOnce)  
-**Networking**: ClusterIP + Headless Service + Ingress  
+**Namespace:** `aigen`  
+**Storage:** PersistentVolumeClaim (ReadWriteOnce)  
+**Networking:** ClusterIP + Headless Service + Ingress  
+**TLS:** Enabled (self-signed certificate)
 
 ---
 
 ## ⚙️ Prerequisites
 
-### Required Software:
-- [Docker](https://docs.docker.com/get-docker/) >= 20.x
-- [Minikube](https://minikube.sigs.k8s.io/docs/start/) >= 1.30
-- [kubectl](https://kubernetes.io/docs/tasks/tools/) >= 1.28
-- [Terraform](https://www.terraform.io/downloads) >= 1.0
-- Bash shell
+### Required Software
+- Docker
+- Minikube
+- kubectl
+- Terraform
+- Bash
 
-### Verify Installation:
+### Verify Installation
 ```bash
 docker --version
 minikube version
@@ -113,57 +118,55 @@ terraform version
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Quick Start (Recommended)
 
-### 1️⃣ Clone Repository
+### 1) Clone repository
 ```bash
-git clone 
-cd k8s-3tier-terraform
+git clone <YOUR_REPO_URL>
+cd kubernetes-infra-with-terraform
 ```
 
-### 2️⃣ Configure Credentials
-
+### 2) Configure credentials
 Edit `terraform/terraform.tfvars`:
 ```hcl
 postgres_password = "your-secure-password"
 openai_api_key    = "sk-your-openai-key"
 ```
 
-### 3️⃣ Build Docker Image
-
+### 3) Automated deployment
 ```bash
-cd AI-IMAGE-GENERATOR
-docker build -t k8s:latest .
-cd ..
+make quickstart
 ```
 
-### 4️⃣ Deploy Infrastructure
+This will:
+- Initialize Terraform
+- Build Docker image (`k8s:latest`)
+- Deploy infrastructure with Terraform
+- Run validation tests
+- Start HTTPS port-forward automatically
 
+Access:
+- **HTTPS:** https://localhost:8443 (accept self-signed certificate)
+- **HTTP:**  http://localhost:8000 (run `make http`)
+
+---
+
+## 🧰 Useful Commands
+
+Run steps manually:
 ```bash
-chmod +x scripts/*.sh
-./scripts/init.sh
-./scripts/apply.sh
+make init
+make build
+make apply
+make test
+make https
+make http
 ```
 
-### 5️⃣ Access Application
-
-**Option 1 - Port Forward (Recommended for Windows/WSL):**
+Destroy everything:
 ```bash
-kubectl port-forward -n aigen svc/aigen-service 8000:8000
+make destroy
 ```
-Open: `http://localhost:8000`
-
-**Option 2 - HTTPS via Ingress:**
-```bash
-kubectl port-forward -n ingress-nginx svc/ingress-nginx-controller 8443:443
-```
-Open: `https://localhost:8443`
-
-**Option 3 - Direct Access (Linux/Mac):**
-```bash
-echo "$(minikube -p aigen-cluster ip) aigen.local" | sudo tee -a /etc/hosts
-```
-Open: `https://aigen.local`
 
 ---
 
@@ -192,7 +195,7 @@ kubernetes-infra-with-terraform/
 │   ├── destroy.sh
 │   ├── build.sh
 │   ├── load-image.sh
-│   ├── port-forward.sh
+│   └── port-forward-https.sh
 ├── k8s/
 │   └── ingress/
 │       └── certs/
@@ -206,7 +209,7 @@ kubernetes-infra-with-terraform/
 
 ## 🔧 Configuration
 
-### Main Variables (terraform/variables.tf)
+### Main Variables (`terraform/variables.tf`)
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -222,206 +225,103 @@ kubernetes-infra-with-terraform/
 
 ---
 
-## 💻 Usage
-
-### Terraform Commands
-
-```bash
-cd terraform
-
-# Initialize
-terraform init
-
-# Plan
-terraform plan -out=cluster.plan
-
-# Apply
-terraform apply cluster.plan
-
-# Show outputs
-terraform output
-
-# Destroy
-terraform destroy
-```
-
-### Kubernetes Commands
-
-```bash
-# View all resources
-kubectl get all -n aigen
-
-# View pods
-kubectl get pods -n aigen
-
-# Backend logs
-kubectl logs -f -n aigen -l app=aigen
-
-# PostgreSQL logs
-kubectl logs -f -n aigen -l app=postgres
-
-# Access PostgreSQL
-kubectl exec -it -n aigen postgres-0 -- psql -U postgres -d dali_db
-
-# Port-forward
-kubectl port-forward -n aigen svc/aigen-service 8000:8000
-```
-
----
-
 ## 🧪 Testing
 
-### Automated Test
+Run automated tests:
 ```bash
-./scripts/test.sh
+make test
 ```
 
-### Manual Tests
-
-**1. Check cluster:**
+Manual checks:
 ```bash
-minikube status -p aigen-cluster
-```
-
-**2. Check pods:**
-```bash
-kubectl get pods -n aigen -w
-```
-
-**3. Test PostgreSQL:**
-```bash
-POD=$(kubectl get pod -n aigen -l app=postgres -o jsonpath='{.items[0].metadata.name}')
-kubectl exec -n aigen $POD -- psql -U postgres -c '\l'
-```
-
-**4. Test API:**
-```bash
-curl -I http://localhost:8000
+kubectl get all -n aigen
+kubectl get pods -n aigen
+kubectl get ingress -n aigen
+kubectl get pvc -n aigen
 ```
 
 ---
 
 ## 🗑️ Destroy Environment
 
-### Method 1: Automated Script (Recommended)
+Destroy everything:
 ```bash
-./scripts/destroy.sh
-```
-
-### Method 2: Manual Terraform
-```bash
-cd terraform
-terraform destroy -auto-approve
-```
-
-### Method 3: Complete Cleanup
-```bash
-terraform destroy -auto-approve
-minikube delete --all
-docker system prune -a
+make destroy
 ```
 
 ---
 
 ## ⚠️ Known Limitations
 
-1. **Docker Image**: `imagePullPolicy: Never` only works with local images
-   - **Solution**: Publish to Docker Hub or use `minikube image load`
+1. **Local image on Minikube**
+   - Requires loading the image into Minikube (`minikube image load k8s:latest`)
+   - Recommended `imagePullPolicy = IfNotPresent`
 
-2. **Ingress DNS**: `aigen.local` requires `/etc/hosts` entry
-   - **Solution**: Add manually or use port-forward
+2. **Self-signed TLS**
+   - Browser will show warning (expected)
 
-3. **Self-Signed TLS**: Certificates not trusted by browsers
-   - **Solution**: Accept security warning or use Let's Encrypt for production
+3. **Windows/WSL**
+   - Best access method is port-forward (`make https` or `make http`)
 
-4. **StatefulSet Node Selector**: PostgreSQL pinned to specific node
-   - **Solution**: Remove `node_selector` for multi-node clusters
-
-5. **Data Persistence**: Data lost when cluster destroyed
-   - **Solution**: Manual backup before `terraform destroy`
-
-6. **OpenAI API Key**: Requires valid key to function
-   - **Solution**: Get key from https://platform.openai.com/api-keys
-
-7. **Windows/WSL**: Direct Ingress access may not work
-   - **Solution**: Use port-forward
+4. **Data removed on destroy**
+   - PVC data is lost after `terraform destroy`
 
 ---
 
 ## 🔍 Troubleshooting
 
-### Pods Not Starting
-
+### Pods not starting
 ```bash
 kubectl get pods -n aigen
-kubectl logs -n aigen 
-kubectl describe pod -n aigen 
+kubectl describe pod -n aigen <pod-name>
+kubectl logs -n aigen <pod-name>
 ```
 
-**Common solutions:**
-- Check if image exists: `minikube -p aigen-cluster image ls | grep k8s`
-- Verify secrets: `kubectl get secrets -n aigen`
-- Increase resources in Minikube
-
-### Ingress Not Working
-
+### Ingress not working
 ```bash
-minikube addons list | grep ingress
-minikube addons enable ingress
 kubectl get ingress -n aigen
+kubectl get svc -n ingress-nginx
 ```
 
-### PostgreSQL Connection Issues
-
+### PostgreSQL connection issues
 ```bash
-kubectl get svc -n aigen postgres-service
-kubectl get pvc -n aigen
-kubectl exec -n aigen postgres-0 -- pg_isready
-```
-
-### Terraform Errors
-
-```bash
-# Recreate state
-rm -rf .terraform terraform.tfstate*
-terraform init
-
-# Debug
-TF_LOG=DEBUG terraform apply
+kubectl exec -it -n aigen postgres-0 -- pg_isready
+kubectl logs -n aigen -l app=postgres
 ```
 
 ---
 
 ## 📚 References
 
-- [Terraform Kubernetes Provider](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs)
-- [Minikube Documentation](https://minikube.sigs.k8s.io/docs/)
-- [Kubernetes StatefulSets](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/)
-- [NGINX Ingress Controller](https://kubernetes.github.io/ingress-nginx/)
+- Terraform Kubernetes Provider: https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs
+- Minikube Documentation: https://minikube.sigs.k8s.io/docs/
+- Kubernetes StatefulSets: https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/
+- NGINX Ingress Controller: https://kubernetes.github.io/ingress-nginx/
 
 ---
 
 ## 📝 Important Notes
 
-1. **DO NOT COMMIT** `terraform.tfvars` to Git (contains credentials)
-2. **Add to `.gitignore`**:
-   ```
-   terraform.tfvars
-   *.tfstate
-   *.tfstate.backup
-   .terraform/
-   ```
-3. **For production**: Use remote backend (S3, GCS) for Terraform state
-4. **Security**: Use secrets manager (Vault, AWS Secrets Manager)
+- **DO NOT COMMIT** `terraform/terraform.tfvars` (contains credentials)
+- Add to `.gitignore`:
+  ```
+  terraform/terraform.tfvars
+  *.tfstate
+  *.tfstate.backup
+  .terraform/
+  *.tfplan
+  cluster.plan
+  k8s.plan
+  ```
 
 ---
 
 ## 👤 Author
 
-Luís Bárbara - Practical Exercise – Kubernetes Infrastructure with Terraform
+Luís Bárbara — Practical Exercise: Kubernetes Infrastructure with Terraform
 
 ---
 
 ## 📄 License
 
-This project is for educational purposes.
+This project is for educational purposes only.
