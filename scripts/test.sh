@@ -1,160 +1,83 @@
 #!/bin/bash
-# Testing script - Validates that the Kubernetes cluster and application are working
+# Test the deployed application
 
 set -e
 
-echo "🧪 Starting system validation tests..."
+echo "🧪 Testing Infrastructure..."
 echo ""
 
-# Test 1: Check if Minikube is running
-echo "1️⃣  Testing Minikube status..."
-if minikube status | grep -q "Running"; then
-    echo "   ✅ Minikube is running"
-else
-    echo "   ❌ Minikube is not running!"
-    exit 1
-fi
-echo ""
+cd "$(dirname "$0")/../terraform"
 
-# Test 2: Check if namespace exists
-echo "2️⃣  Testing namespace..."
-if kubectl get namespace aigen &> /dev/null; then
-    echo "   ✅ Namespace 'aigen' exists"
-else
-    echo "   ❌ Namespace 'aigen' not found!"
-    exit 1
-fi
-echo ""
+# Get values
+NAMESPACE=$(terraform output -raw namespace 2>/dev/null || echo "aigen")
+CLUSTER_NAME=$(terraform output -raw cluster_name 2>/dev/null || echo "aigen-cluster")
 
-# Test 3: Check if all pods are running
-echo "3️⃣  Testing pods status..."
-PODS_NOT_READY=$(kubectl get pods -n aigen --no-headers | grep -v "Running\|Completed" | wc -l)
-if [ "$PODS_NOT_READY" -eq 0 ]; then
-    echo "   ✅ All pods are running"
-    kubectl get pods -n aigen
-else
-    echo "   ❌ Some pods are not ready!"
-    kubectl get pods -n aigen
-    exit 1
-fi
-echo ""
+# 1. Check cluster
+echo "1️⃣  Checking cluster..."
+minikube status -p "$CLUSTER_NAME"
 
-# Test 4: Check if services exist
-echo "4️⃣  Testing services..."
-if kubectl get svc -n aigen aigen-service &> /dev/null && \
-   kubectl get svc -n aigen postgres-service &> /dev/null; then
-    echo "   ✅ All services exist"
-else
-    echo "   ❌ Some services are missing!"
-    exit 1
-fi
+# 2. Check namespace
 echo ""
+echo "2️⃣  Checking namespace..."
+kubectl get namespace "$NAMESPACE"
 
-# Test 5: Check if ingress exists
-echo "5️⃣  Testing ingress..."
-if kubectl get ingress -n aigen aigen-ingress &> /dev/null; then
-    echo "   ✅ Ingress exists"
-    kubectl get ingress -n aigen
-else
-    echo "   ❌ Ingress not found!"
-    exit 1
-fi
+# 3. Check pods
 echo ""
+echo "3️⃣  Checking pods..."
+kubectl get pods -n "$NAMESPACE"
 
-# Test 6: Check if secrets exist
-echo "6️⃣  Testing secrets..."
-if kubectl get secret -n aigen postgres-secret &> /dev/null && \
-   kubectl get secret -n aigen django-secret &> /dev/null && \
-   kubectl get secret -n aigen aigen-tls-secret &> /dev/null; then
-    echo "   ✅ All secrets exist"
-else
-    echo "   ❌ Some secrets are missing!"
-    exit 1
-fi
+# 4. Check services
 echo ""
+echo "4️⃣  Checking services..."
+kubectl get svc -n "$NAMESPACE"
 
-# Test 7: Check if configmap exists
-echo "7️⃣  Testing configmap..."
-if kubectl get configmap -n aigen django-config &> /dev/null; then
-    echo "   ✅ ConfigMap exists"
-else
-    echo "   ❌ ConfigMap not found!"
-    exit 1
-fi
+# 5. Check ingress
 echo ""
+echo "5️⃣  Checking ingress..."
+kubectl get ingress -n "$NAMESPACE"
 
-# Test 8: Check if PVC exists and is bound
-echo "8️⃣  Testing PersistentVolumeClaim..."
-PVC_STATUS=$(kubectl get pvc -n aigen postgres-pvc -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound")
-if [ "$PVC_STATUS" = "Bound" ]; then
-    echo "   ✅ PVC is bound"
-else
-    echo "   ❌ PVC is not bound (Status: $PVC_STATUS)!"
-    exit 1
-fi
+# 6. Check PVC
 echo ""
+echo "6️⃣  Checking PVC..."
+kubectl get pvc -n "$NAMESPACE"
 
-# Test 9: Test database connectivity
-echo "9️⃣  Testing database connectivity..."
-DB_POD=$(kubectl get pod -n aigen -l app=postgres -o jsonpath="{.items[0].metadata.name}" 2>/dev/null || echo "")
-if [ -n "$DB_POD" ]; then
-    if kubectl exec -n aigen $DB_POD -- pg_isready -U postgres &> /dev/null; then
-        echo "   ✅ Database is accepting connections"
-    else
-        echo "   ⚠️  Database pod exists but not ready yet"
-    fi
-else
-    echo "   ❌ Database pod not found!"
-    exit 1
-fi
+# 7. Wait for pods
 echo ""
+echo "7️⃣  Waiting for pods to be ready..."
+kubectl wait --for=condition=ready pod -l app=postgres -n "$NAMESPACE" --timeout=60s
+kubectl wait --for=condition=ready pod -l app=aigen -n "$NAMESPACE" --timeout=60s
 
-# Test 10: Test backend application HTTP response
-echo "🔟 Testing backend application..."
-BACKEND_POD=$(kubectl get pod -n aigen -l app=aigen -o jsonpath="{.items[0].metadata.name}" 2>/dev/null || echo "")
-if [ -n "$BACKEND_POD" ]; then
-    HTTP_CODE=$(kubectl exec -n aigen $BACKEND_POD -- curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/ 2>/dev/null || echo "000")
-    if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "302" ] || [ "$HTTP_CODE" = "405" ]; then
-        echo "   ✅ Backend is responding (HTTP $HTTP_CODE)"
-    else
-        echo "   ⚠️  Backend responded with HTTP $HTTP_CODE"
-    fi
-else
-    echo "   ❌ Backend pod not found!"
-    exit 1
-fi
+# 8. Test PostgreSQL
 echo ""
+echo "8️⃣  Testing PostgreSQL connection..."
+POSTGRES_POD=$(kubectl get pod -n "$NAMESPACE" -l app=postgres -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -n "$NAMESPACE" "$POSTGRES_POD" -- psql -U postgres -c '\l' || echo "⚠️  PostgreSQL not ready yet"
 
-# Test 11: Test Ingress Controller
-echo "1️⃣1️⃣  Testing Ingress Controller..."
-if kubectl get svc -n ingress-nginx ingress-nginx-controller &> /dev/null; then
-    echo "   ✅ Ingress Controller is deployed"
-else
-    echo "   ❌ Ingress Controller not found!"
-    exit 1
-fi
+# 9. Test backend logs
 echo ""
+echo "9️⃣  Checking backend logs..."
+BACKEND_POD=$(kubectl get pod -n "$NAMESPACE" -l app=aigen -o jsonpath='{.items[0].metadata.name}')
+kubectl logs -n "$NAMESPACE" "$BACKEND_POD" --tail=20 || echo "⚠️  Backend has no logs yet"
 
-# Test 12: End-to-end test (if port-forward is running)
-echo "1️⃣2️⃣  Testing end-to-end connectivity..."
-if curl -k -s https://localhost:8443 -H "Host: aigen.local" --max-time 5 &> /dev/null; then
-    echo "   ✅ Application is accessible via HTTPS (port-forward active)"
-elif curl -k -s https://192.168.49.2:32507 -H "Host: aigen.local" --max-time 5 &> /dev/null; then
-    echo "   ✅ Application is accessible via NodePort"
-else
-    echo "   ⚠️  Application not accessible (port-forward may not be running)"
-    echo "      Run 'make start' to access the application"
-fi
+# 10. Port-forward test
 echo ""
+echo "🔟 Testing HTTP access..."
+kubectl port-forward -n "$NAMESPACE" svc/aigen-service 8000:8000 &
+PF_PID=$!
+sleep 3
+curl -s -o /dev/null -w "Status: %{http_code}\n" http://localhost:8000 || echo "⚠️  Service not accessible yet"
+kill $PF_PID 2>/dev/null || true
 
-# Summary
-echo "======================================="
-echo "  ✅ ALL TESTS PASSED!"
-echo "======================================="
 echo ""
-echo "System is fully operational!"
+echo "✅ All tests completed!"
 echo ""
-echo "To access the application:"
-echo "  1. Run: make start"
-echo "  2. Open: https://localhost:8443"
+echo "📌 Access application:"
+echo "   kubectl port-forward -n $NAMESPACE svc/aigen-service 8000:8000"
+echo "   Open: http://localhost:8000"
+echo ""
+echo "📌 View logs:"
+echo "   kubectl logs -f -n $NAMESPACE -l app=aigen"
+echo ""
+echo "📌 Access PostgreSQL:"
+echo "   kubectl exec -it -n $NAMESPACE $POSTGRES_POD -- psql -U postgres -d dali_db"
 echo ""

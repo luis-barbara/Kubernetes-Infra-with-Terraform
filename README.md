@@ -1,460 +1,427 @@
-# Kubernetes 3-Tier Web Application
+# Kubernetes 3-Tier Infrastructure with Terraform
 
-A complete 3-tier web application deployed on Kubernetes using Minikube, featuring a Django backend with templates (frontend), PostgreSQL database, and NGINX Ingress Controller for external access.
+AI Image Generator application deployed on Kubernetes using Terraform Infrastructure as Code.
 
 ## 📋 Table of Contents
 
-- [Application Description](#application-description)
-- [Architecture](#architecture)
-- [Technologies Used](#technologies-used)
-- [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
 - [Project Structure](#project-structure)
-- [Installation & Deployment](#installation--deployment)
-- [Accessing the Application](#accessing-the-application)
-- [Testing](#testing)
-- [Management Commands](#management-commands)
-- [Kubernetes Resources](#kubernetes-resources)
-- [Troubleshooting](#troubleshooting)
-- [Cleanup](#cleanup)
+
+---
+- **Database**: PostgreSQL 17 Alpine
+- **Orchestration**: Kubernetes (Minikube)
+- **IaC**: Terraform
+
+### What was **REUSED**:
+✅ Same Django application (AI Image Generator)  
+
+🔄 **Secrets managed via `terraform.tfvars`** (not hardcoded)  
+- ✅ **State management**: Terraform tracks what exists
+
+## 🚀 Quick Start
+
+### 1️⃣ Clone Repository
+```bash
+- ✅ **Variables and outputs**: Dynamic configuration
+- ✅ **Easy destroy**: Remove everything with one command
+```
+
+### 2️⃣ Configure Credentials
+
+Edit `terraform/terraform.tfvars`:
+```hcl
+- ✅ **Versioning**: Control provider versions
+
+```
+
+### 3️⃣ Deploy Everything (Automático)
+
+```bash
+---
+```
+Esse comando irá:
+- Inicializar o Terraform
+- Buildar a imagem Docker
+- Aplicar a infraestrutura
+- Rodar os testes
+- Fazer o port-forward HTTPS automaticamente
+
+Ao final, acesse:
+- HTTPS: https://localhost:8443 (aceite o certificado self-signed)
+- HTTP:  http://localhost:8000 (use `make http` se quiser expor HTTP)
 
 ---
 
-## 📖 Application Description
+### Comandos Individuais (Avançado)
 
-This is an **AI Image Generator** application built with Django that demonstrates a complete 3-tier architecture deployed on Kubernetes:
+Se preferir executar etapas separadas:
 
-- **Frontend Tier**: Django Templates (HTML/CSS) serving the user interface
-- **Backend Tier**: Django REST application with business logic
-- **Database Tier**: PostgreSQL database for persistent data storage
-
-The application allows users to create and manage AI-generated character images with various customization options.
-
----
+```bash
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    External Access                       │
-│              https://localhost:8443                      │
-└────────────────────┬────────────────────────────────────┘
-                     │
-                     ▼
-         ┌───────────────────────┐
-         │  NGINX Ingress        │
-         │  Controller           │
-         │  (TLS Termination)    │
-         └───────────┬───────────┘
-                     │
-                     ▼
-         ┌───────────────────────┐
-         │  Frontend + Backend   │
-         │  (Django)             │
-         │  - Templates (HTML)   │
-         │  - REST API           │
-         │  - Business Logic     │
-         │  Port: 8000           │
-         └───────────┬───────────┘
-                     │
-                     ▼
-         ┌───────────────────────┐
-         │  Database             │
-         │  (PostgreSQL)         │
-         │  - Persistent Storage │
-         │  - StatefulSet        │
-         │  Port: 5432           │
-         └───────────────────────┘
+┌─────────────────────────────────────────────┐
+│         NGINX Ingress Controller            │
+│         (aigen.local / localhost)           │
+└──────────────────┬──────────────────────────┘
+                   │
+         ┌─────────▼─────────┐
+         │  aigen-service    │ (ClusterIP:8000)
+         └─────────┬─────────┘
+                   │
+         ┌─────────▼─────────┐
+         │   Django Backend  │
+         │   (Deployment)    │
+         │   - ConfigMap     │
+         │   - Secret        │
+         └─────────┬─────────┘
+                   │
+         ┌─────────▼─────────┐
+         │ postgres-service  │ (Headless)
+         └─────────┬─────────┘
+                   │
+         ┌─────────▼─────────┐
+         │   PostgreSQL 17   │
+         │   (StatefulSet)   │
+         │   + PVC (1Gi)     │
+         └───────────────────┘
 ```
 
-### Kubernetes Components:
-
-- **Namespace**: `aigen` - Isolated environment for all resources
-- **Ingress**: Routes external HTTPS traffic to the Django service
-- **Services**: 
-  - `aigen-service` - Exposes Django application (ClusterIP)
-  - `postgres-service` - Exposes PostgreSQL database (ClusterIP)
-- **Deployments**: `aigen-deployment` - Manages Django pods
-- **StatefulSet**: `postgres-statefulset` - Manages PostgreSQL with persistent storage
-- **ConfigMap**: `django-config` - Application configuration
-- **Secrets**: 
-  - `django-secret` - Django secret key
-  - `postgres-secret` - Database credentials
-  - `aigen-tls-secret` - TLS certificates
-- **PersistentVolumeClaim**: `postgres-pvc` - Persistent storage for database
+**Namespace**: `aigen`  
+**Storage**: PersistentVolumeClaim (ReadWriteOnce)  
+**Networking**: ClusterIP + Headless Service + Ingress  
 
 ---
 
-## 🛠️ Technologies Used
+## ⚙️ Prerequisites
 
-- **Kubernetes**: Minikube (Local cluster)
-- **Container Runtime**: Docker
-- **Ingress Controller**: NGINX Ingress Controller
-- **Backend Framework**: Django 4.x (Python)
-- **Database**: PostgreSQL 15
-- **Frontend**: Django Templates (HTML/CSS)
-- **Automation**: Bash scripts + Makefile
+### Required Software:
+- [Docker](https://docs.docker.com/get-docker/) >= 20.x
+- [Minikube](https://minikube.sigs.k8s.io/docs/start/) >= 1.30
+- [kubectl](https://kubernetes.io/docs/tasks/tools/) >= 1.28
+- [Terraform](https://www.terraform.io/downloads) >= 1.0
+- Bash shell
 
----
-
-## ✅ Prerequisites
-
-Before you begin, ensure you have the following installed:
-
-- **Docker** - [Install Docker](https://docs.docker.com/get-docker/)
-- **Minikube** - [Install Minikube](https://minikube.sigs.k8s.io/docs/start/)
-- **kubectl** - [Install kubectl](https://kubernetes.io/docs/tasks/tools/)
-- **Make** (optional but recommended)
-- **Git**
-
-Verify installations:
+### Verify Installation:
 ```bash
 docker --version
 minikube version
 kubectl version --client
-make --version
+terraform version
 ```
+
+---
+
+## 🚀 Quick Start
+
+### 1️⃣ Clone Repository
+```bash
+git clone 
+cd k8s-3tier-terraform
+```
+
+### 2️⃣ Configure Credentials
+
+Edit `terraform/terraform.tfvars`:
+```hcl
+postgres_password = "your-secure-password"
+openai_api_key    = "sk-your-openai-key"
+```
+
+### 3️⃣ Build Docker Image
+
+```bash
+cd AI-IMAGE-GENERATOR
+docker build -t k8s:latest .
+cd ..
+```
+
+### 4️⃣ Deploy Infrastructure
+
+```bash
+chmod +x scripts/*.sh
+./scripts/init.sh
+./scripts/apply.sh
+```
+
+### 5️⃣ Access Application
+
+**Option 1 - Port Forward (Recommended for Windows/WSL):**
+```bash
+kubectl port-forward -n aigen svc/aigen-service 8000:8000
+```
+Open: `http://localhost:8000`
+
+**Option 2 - HTTPS via Ingress:**
+```bash
+kubectl port-forward -n ingress-nginx svc/ingress-nginx-controller 8443:443
+```
+Open: `https://localhost:8443`
+
+**Option 3 - Direct Access (Linux/Mac):**
+```bash
+echo "$(minikube -p aigen-cluster ip) aigen.local" | sudo tee -a /etc/hosts
+```
+Open: `https://aigen.local`
 
 ---
 
 ## 📁 Project Structure
 
 ```
-Kubernetes_3-Tier_Web/
-├── README.md                          # This file
-├── Makefile                           # Quick commands
-├── AI-IMAGE-GENERATOR/                # Django application source code
-│   ├── Dockerfile                     # Docker image definition
-│   ├── manage.py                      # Django management script
-│   ├── requirements.txt               # Python dependencies
-│   ├── dali/                          # Django project settings
-│   └── characters/                    # Main Django app
-├── k8s/                               # Kubernetes manifests
-│   ├── namespaces/
-│   │   └── namespaces.yaml           # Namespace definition
-│   ├── backend-django-templates/      # Backend resources
-│   │   ├── deployment.yaml           # Django deployment
-│   │   ├── service.yaml              # Django service
-│   │   ├── configmap.yaml            # Application config
-│   │   └── secret.yaml               # Django secrets
-│   ├── database/                      # Database resources
-│   │   ├── statefulset.yaml          # PostgreSQL StatefulSet
-│   │   ├── service.yaml              # Database service
-│   │   ├── pvc.yaml                  # Persistent volume claim
-│   │   └── secret.yaml               # Database credentials
-│   └── ingress/                       # Ingress resources
-│       ├── ingress.yaml              # Ingress rules
-│       └── certs/                    # TLS certificates (generated)
-└── scripts/                           # Automation scripts
-    ├── setup.sh                       # Initial setup
-    ├── build.sh                       # Build Docker image
-    ├── deploy.sh                      # Deploy application
-    ├── test.sh                        # Run tests
-    ├── port-forward.sh               # Access application
-    ├── status.sh                      # Check status
-    ├── logs.sh                        # View logs
-    ├── restart.sh                     # Restart pods
-    ├── migrate.sh                     # Run migrations
-    └── destroy.sh                     # Cleanup resources
+kubernetes-infra-with-terraform/
+├── README.md
+├── Makefile
+├── .gitignore
+├── terraform/
+│   ├── providers.tf
+│   ├── cluster.tf
+│   ├── variables.tf
+│   ├── outputs.tf
+│   ├── namespace.tf
+│   ├── pvc.tf
+│   ├── database.tf
+│   ├── backend.tf
+│   ├── ingress.tf
+│   └── terraform.tfvars
+├── scripts/
+│   ├── init.sh
+│   ├── apply.sh
+│   ├── test.sh
+│   ├── destroy.sh
+│   ├── build.sh
+│   ├── load-image.sh
+│   ├── port-forward.sh
+├── k8s/
+│   └── ingress/
+│       └── certs/
+│           ├── tls.crt
+│           └── tls.key
+└── AI-IMAGE-GENERATOR/
+    └── (Django application)
 ```
 
 ---
 
-## 🚀 Installation & Deployment
+## 🔧 Configuration
 
-### Quick Start (Recommended)
+### Main Variables (terraform/variables.tf)
 
-```bash
-# Clone the repository
-git clone <repository-url>
-cd Kubernetes_3-Tier_Web
-
-# Start Minikube
-minikube start
-
-# Deploy everything with one command
-make quickstart
-```
-
-This will:
-1. ✅ Create namespace and secrets
-2. ✅ Install NGINX Ingress Controller
-3. ✅ Start Minikube tunnel
-4. ✅ Build Docker image
-5. ✅ Deploy database and backend
-6. ✅ Configure Ingress
-7. ✅ Wait for all pods to be ready
-8. ✅ Run validation tests
-9. ✅ Start port-forward for access
-
-### Manual Step-by-Step
-
-If you prefer manual control:
-
-```bash
-# 1. Start Minikube
-minikube start
-
-# 2. Initial setup (namespace, secrets, ingress controller)
-make setup
-# or: ./scripts/setup.sh
-
-# 3. Build Docker image in Minikube
-make build
-# or: ./scripts/build.sh
-
-# 4. Deploy application
-make deploy
-# or: ./scripts/deploy.sh
-
-# 5. Start port-forward to access the application
-make start
-# or: ./scripts/port-forward.sh
-```
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `cluster_name` | Cluster name | `aigen-cluster` |
+| `cluster_nodes` | Number of nodes | `1` |
+| `backend_image` | Django Docker image | `k8s:latest` |
+| `postgres_db` | Database name | `dali_db` |
+| `postgres_username` | DB username | (required) |
+| `postgres_password` | DB password | (required) |
+| `openai_api_key` | OpenAI API Key | (required) |
+| `ingress_host` | Ingress hostname | `aigen.local` |
+| `enable_tls` | Enable TLS | `true` |
 
 ---
 
-## 🌐 Accessing the Application
+## 💻 Usage
 
-Once deployed, access the application at:
+### Terraform Commands
 
+```bash
+cd terraform
+
+# Initialize
+terraform init
+
+# Plan
+terraform plan -out=cluster.plan
+
+# Apply
+terraform apply cluster.plan
+
+# Show outputs
+terraform output
+
+# Destroy
+terraform destroy
 ```
-https://localhost:8443
+
+### Kubernetes Commands
+
+```bash
+# View all resources
+kubectl get all -n aigen
+
+# View pods
+kubectl get pods -n aigen
+
+# Backend logs
+kubectl logs -f -n aigen -l app=aigen
+
+# PostgreSQL logs
+kubectl logs -f -n aigen -l app=postgres
+
+# Access PostgreSQL
+kubectl exec -it -n aigen postgres-0 -- psql -U postgres -d dali_db
+
+# Port-forward
+kubectl port-forward -n aigen svc/aigen-service 8000:8000
 ```
-
-**Note**: You'll see a certificate warning because we use self-signed certificates. Click "Advanced" → "Proceed to localhost" to continue.
-
-### Alternative Access Methods
-
-1. **Via NodePort** (without port-forward):
-   ```bash
-   # Get Minikube IP
-   minikube ip
-   
-   # Access via NodePort
-   curl -k https://$(minikube ip):32507 -H "Host: aigen.local"
-   ```
-
-2. **Inside the cluster**:
-   ```bash
-   kubectl exec -it <pod-name> -n aigen -- curl http://aigen-service:8000
-   ```
 
 ---
 
 ## 🧪 Testing
 
-Run the automated test suite to validate the deployment:
-
+### Automated Test
 ```bash
-make test
-# or: ./scripts/test.sh
+./scripts/test.sh
 ```
 
-The test script validates:
-- ✅ Minikube is running
-- ✅ Namespace exists
-- ✅ All pods are running
-- ✅ All services exist
-- ✅ Ingress is configured
-- ✅ Secrets and ConfigMaps exist
-- ✅ PersistentVolumeClaim is bound
-- ✅ Database connectivity
-- ✅ Backend HTTP responses
-- ✅ Ingress Controller is running
-- ✅ End-to-end connectivity
+### Manual Tests
 
----
-
-## 📝 Management Commands
-
-### Using Makefile (Recommended)
-
+**1. Check cluster:**
 ```bash
-make help           # Show all available commands
-make setup          # Initial setup
-make build          # Build Docker image
-make deploy         # Deploy application
-make start          # Start port-forward
-make stop           # Stop port-forward
-make status         # Show cluster status
-make logs-backend   # View Django logs
-make logs-db        # View PostgreSQL logs
-make restart        # Restart all pods
-make migrate        # Run Django migrations
-make test           # Run validation tests
-make destroy        # Remove all resources
-make quickstart     # Complete setup + deployment + access
+minikube status -p aigen-cluster
 ```
 
-### Using Scripts Directly
-
+**2. Check pods:**
 ```bash
-./scripts/setup.sh          # Initial setup
-./scripts/build.sh          # Build Docker image
-./scripts/deploy.sh         # Deploy application
-./scripts/port-forward.sh   # Start port-forward
-./scripts/status.sh         # Show cluster status
-./scripts/logs.sh backend   # View Django logs
-./scripts/logs.sh db        # View PostgreSQL logs
-./scripts/restart.sh        # Restart pods
-./scripts/migrate.sh        # Run migrations
-./scripts/test.sh           # Run tests
-./scripts/destroy.sh        # Cleanup
+kubectl get pods -n aigen -w
+```
+
+**3. Test PostgreSQL:**
+```bash
+POD=$(kubectl get pod -n aigen -l app=postgres -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -n aigen $POD -- psql -U postgres -c '\l'
+```
+
+**4. Test API:**
+```bash
+curl -I http://localhost:8000
 ```
 
 ---
 
-## 📦 Kubernetes Resources
+## 🗑️ Destroy Environment
 
-### Deployments
-- **aigen-deployment**: Runs Django application (1 replica, can scale)
+### Method 1: Automated Script (Recommended)
+```bash
+./scripts/destroy.sh
+```
 
-### StatefulSets
-- **postgres-statefulset**: Runs PostgreSQL with persistent storage (1 replica)
+### Method 2: Manual Terraform
+```bash
+cd terraform
+terraform destroy -auto-approve
+```
 
-### Services
-- **aigen-service**: ClusterIP service for Django (port 8000)
-- **postgres-service**: ClusterIP service for PostgreSQL (port 5432)
-
-### ConfigMaps
-- **django-config**: Application configuration (database host, settings module)
-
-### Secrets
-- **django-secret**: Django SECRET_KEY
-- **postgres-secret**: Database credentials (username, password, database name)
-- **aigen-tls-secret**: TLS certificate and key for HTTPS
-
-### PersistentVolumeClaims
-- **postgres-pvc**: 1Gi storage for PostgreSQL data
-
-### Ingress
-- **aigen-ingress**: Routes external traffic to Django service
-  - Hosts: `aigen.local`, `localhost`
-  - TLS enabled
-  - Path: `/` → `aigen-service:8000`
+### Method 3: Complete Cleanup
+```bash
+terraform destroy -auto-approve
+minikube delete --all
+docker system prune -a
+```
 
 ---
 
-## 🔧 Troubleshooting
+## ⚠️ Known Limitations
 
-### Pods not starting
+1. **Docker Image**: `imagePullPolicy: Never` only works with local images
+   - **Solution**: Publish to Docker Hub or use `minikube image load`
+
+2. **Ingress DNS**: `aigen.local` requires `/etc/hosts` entry
+   - **Solution**: Add manually or use port-forward
+
+3. **Self-Signed TLS**: Certificates not trusted by browsers
+   - **Solution**: Accept security warning or use Let's Encrypt for production
+
+4. **StatefulSet Node Selector**: PostgreSQL pinned to specific node
+   - **Solution**: Remove `node_selector` for multi-node clusters
+
+5. **Data Persistence**: Data lost when cluster destroyed
+   - **Solution**: Manual backup before `terraform destroy`
+
+6. **OpenAI API Key**: Requires valid key to function
+   - **Solution**: Get key from https://platform.openai.com/api-keys
+
+7. **Windows/WSL**: Direct Ingress access may not work
+   - **Solution**: Use port-forward
+
+---
+
+## 🔍 Troubleshooting
+
+### Pods Not Starting
 
 ```bash
-# Check pod status
 kubectl get pods -n aigen
-
-# View pod details
-kubectl describe pod <pod-name> -n aigen
-
-# View pod logs
-kubectl logs <pod-name> -n aigen
+kubectl logs -n aigen 
+kubectl describe pod -n aigen 
 ```
 
-### Database connection issues
+**Common solutions:**
+- Check if image exists: `minikube -p aigen-cluster image ls | grep k8s`
+- Verify secrets: `kubectl get secrets -n aigen`
+- Increase resources in Minikube
+
+### Ingress Not Working
 
 ```bash
-# Check database pod
-kubectl logs -n aigen -l app=postgres
-
-# Test database connection
-kubectl exec -it <postgres-pod> -n aigen -- psql -U postgres
-```
-
-### Application not accessible
-
-```bash
-# Verify port-forward is running
-ps aux | grep "kubectl port-forward"
-
-# Check ingress status
+minikube addons list | grep ingress
+minikube addons enable ingress
 kubectl get ingress -n aigen
-
-# Verify services
-kubectl get svc -n aigen
 ```
 
-### Image pull errors
+### PostgreSQL Connection Issues
 
 ```bash
-# Rebuild image in Minikube
-eval $(minikube docker-env)
-docker build -t k8s:latest ./AI-IMAGE-GENERATOR/
+kubectl get svc -n aigen postgres-service
+kubectl get pvc -n aigen
+kubectl exec -n aigen postgres-0 -- pg_isready
+```
 
-# Verify image exists
-docker images | grep k8s
+### Terraform Errors
+
+```bash
+# Recreate state
+rm -rf .terraform terraform.tfstate*
+terraform init
+
+# Debug
+TF_LOG=DEBUG terraform apply
 ```
 
 ---
 
-## 🗑️ Cleanup
+## 📚 References
 
-To remove all resources:
-
-```bash
-make destroy
-# or: ./scripts/destroy.sh
-```
-
-This will:
-- Stop port-forwards
-- Delete Ingress
-- Delete backend deployment
-- Delete database StatefulSet
-- Delete namespace (which removes all resources inside)
-- Stop Minikube tunnel
-
-To also stop Minikube:
-```bash
-minikube stop
-minikube delete
-```
+- [Terraform Kubernetes Provider](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs)
+- [Minikube Documentation](https://minikube.sigs.k8s.io/docs/)
+- [Kubernetes StatefulSets](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/)
+- [NGINX Ingress Controller](https://kubernetes.github.io/ingress-nginx/)
 
 ---
 
-## 📚 Additional Information
+## 📝 Important Notes
 
-### Scaling the Application
-
-```bash
-# Scale Django deployment
-kubectl scale deployment aigen-deployment -n aigen --replicas=3
-
-# Verify
-kubectl get pods -n aigen
-```
-
-### Updating the Application
-
-```bash
-# Rebuild image
-make build
-
-# Restart deployment to use new image
-make restart
-```
-
-### Running Django Commands
-
-```bash
-# Get pod name
-POD=$(kubectl get pod -n aigen -l app=aigen -o jsonpath="{.items[0].metadata.name}")
-
-# Run migrations
-kubectl exec -it $POD -n aigen -- python manage.py migrate
-
-# Create superuser
-kubectl exec -it $POD -n aigen -- python manage.py createsuperuser
-
-# Django shell
-kubectl exec -it $POD -n aigen -- python manage.py shell
-```
+1. **DO NOT COMMIT** `terraform.tfvars` to Git (contains credentials)
+2. **Add to `.gitignore`**:
+   ```
+   terraform.tfvars
+   *.tfstate
+   *.tfstate.backup
+   .terraform/
+   ```
+3. **For production**: Use remote backend (S3, GCS) for Terraform state
+4. **Security**: Use secrets manager (Vault, AWS Secrets Manager)
 
 ---
 
-## 👨‍💻 Author
+## 👤 Author
 
-Created for Kubernetes Module Assignment
+Luís Bárbara - Practical Exercise – Kubernetes Infrastructure with Terraform
+
+---
 
 ## 📄 License
 
-See LICENSE file for details
+This project is for educational purposes.
