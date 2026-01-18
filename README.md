@@ -122,8 +122,8 @@ terraform version
 
 ### 1) Clone repository
 ```bash
-git clone <YOUR_REPO_URL>
-cd kubernetes-infra-with-terraform
+git clone https://github.com/luis-barbara/Kubernetes-Infra-with-Terraform.git
+cd Kubernetes-Infra-with-Terraform
 ```
 
 ### 2) Configure credentials
